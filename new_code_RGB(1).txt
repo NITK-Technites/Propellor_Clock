@@ -1,0 +1,177 @@
+#include <msp430g2553.h>
+#define SIN5916 	 BIT7
+#define SCLK5916      BIT4
+#define LTCH5916 	 BIT5
+
+
+/* 87654 DISP
+ * 321 NULL
+  A {0X78,0XA0,0XA0,0XA0,0X78}
+  B {0XF8,0XA8,0XA8,0XA8,0X70}
+  C {0x70,0x88,0X88,0X88,0X88}
+  D {0XF8,0X88,0X88,0X88,0X70}
+  E {0xF8,0xA8,0xA8,0x88,0X88}
+  F {0xF8,0xA0,0xA0,0x80,0X80}
+  G {0X78,0X88,0XA8,0XA8,0XB8}
+  H {0XF8,0X20,0X20,0X20,0XF8}
+  I {0X00,0X88,0XF8,0X88,0X00}
+  J {0x98,0x88,0xF8,0X80,0X80}
+  K {0XF8,0X20,0X20,0X50,0X88}
+  L {0XF8,0X08,0X08,0X08,0X08}
+  M {0XF8,0X40,0X20,0X40,0XF8}
+  N {0XF8,0X40,0X20,0X10,0XF8}
+  O {0X70,0X88,0X88,0X88,0X70}
+  P {0XF8,0XA0,0XA0,0XA0,0XE0}
+  Q {0XF8,0X88,0XA8,0X98,0XF8}
+  R {0XF8,0XA0,0XA0,0XB0,0X68}
+  S {0X68,0XA8,0XA8,0XA8,0XB0}
+  T {0X80,0X80,0XF8,0X80,0X80}
+  U {0XF0,0X08,0X08,0X08,0XF0}
+  V {0xE0,0X10,0X08,0X10,0XE0}
+  W {0XF8,0X10,0X20,0X10,0XF8}
+  X {0X88,0X50,0X20,0X50,0X88}
+  Y {0X80,0X40,0X38,0X40,0X80}
+  Z {0X88,0X98,0XA8,0XC8,0X88}
+ */
+
+/* A {0X3C,0X50,0X50,0X50,0X3C}
+   B {0X7C,0X54,0X54,0X54,0X38}
+   C {0x38,0x44,0x44,0x44,0x00}
+   E {0X7C,0X54,0X54,0x44,0x44}
+   H {0X7C,0X10,0X10,0X10,0X7C}
+   I {0X00,0X00,0X7C,0X00,0X00}
+   K {0x7C,0x10,0X10,0X28,0X44}
+   N {0x7C,0X20,0X10,0X08,0X7C}
+   R {0x7C,0x50,0x50,0x58,0x64}
+   S {0x24,0x54,0X54,0X54,0X48}
+   T {0X40,0X40,0X7C,0X40,0X40}
+   Y {0x40,0x20,0X1C,0X20,0X40}
+ */
+
+/* 0- R
+   1- G
+2-B
+3-RG
+4-RB
+5-GB
+6-RGB
+*/
+int colarr[3];
+int k,j,l;
+char temp0,temp1,temp2;
+int a[9][5]={{0X80,0X80,0XF8,0X80,0X80},
+		{0xF8,0xA8,0xA8,0x88,0X88},
+		{0x70,0x88,0X88,0X88,0X88},
+		{0XF8,0X20,0X20,0X20,0XF8},
+		{0XF8,0X40,0X20,0X10,0XF8},
+		{0X00,0X88,0XF8,0X88,0X00},
+		{0X80,0X80,0XF8,0X80,0X80},
+		{0xF8,0xA8,0xA8,0x88,0X88},
+		{0X68,0XA8,0XA8,0XA8,0XB0}};
+int b[8][5]={{0xFF,0xFF,0xFF,0xFF,0xFF},
+		{0xFF,0xFF,0xFF,0xFF,0xFF},{0xFF,0xFF,0xFF,0xFF,0xFF},{0xFF,0xFF,0xFF,0xFF,0xFF},{0xFF,0xFF,0xFF,0xFF,0xFF},{0xFF,0xFF,0xFF,0xFF,0xFF},{0xFF,0xFF,0xFF,0xFF,0xFF},
+		{0X68,0XA8,0XA8,0XA8,0XB0}};
+
+void delay(int);
+void colordata(int, int);
+void SendData();
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;	// Stop watchdog timer
+    	P1DIR = 0;
+    P1DIR |= (SIN5916 + SCLK5916 + LTCH5916);
+    P1OUT=0;
+
+	P2REN |= BIT0;
+	P2IE |= 0x01; // P2.0 interrupt enabled
+	P2IES |= 0xEF; // P2.0 Hi/lo edge
+	P2IFG &= ~0x01; //P2.0 interrupt flag cleared
+	int i,j;
+
+
+	while(1)
+	{  for(k=0;k<9;k++)
+        {  for(j=0;j<5;j++)
+          {
+           colordata(5,a[k][j]);
+        	SendData();
+        	P1OUT|=LTCH5916;
+        	P1OUT&=~(LTCH5916);
+           delay(300);
+           } delay(700);
+         }
+		delay(1000);//_BIS_SR(LPM0_bits + GIE);
+	}
+
+
+} // 0-G 1-B 2-R
+
+void colordata(int col, int arr)
+{ int R=0,G=0,B=0;
+colarr[2]=0;
+colarr[1]=0;
+colarr[0]=0;
+if(col==0) R=1;
+if(col==1) G=1;
+if(col==2) B=1;
+if(col==3) {R=1;G=1;}
+if(col==4) {R=1;B=1;}
+if(col==5) {G=1;B=1;}
+if(col==6) {R=1;G=1;B=1;}
+
+if(R==1)
+{colarr[2]=arr;}
+if(G==1)
+{colarr[0]=arr;}
+if(B==1)
+{colarr[1]=arr;}
+
+}
+void delay(int del)
+{
+	int i;
+	for(i=0;i<del;i++)
+	_delay_cycles(10);
+}
+
+#pragma vector=PORT2_VECTOR
+__interrupt void Port_2(void)
+{
+_bic_SR_register_on_exit(LPM0_bits);
+P2IFG &= ~0x01; // P2.0 IFG cleared
+}
+
+void SendData()
+{
+
+    P1OUT &= ~(SIN5916 + LTCH5916 + SCLK5916);
+
+	      temp0=colarr[0];
+           temp1=colarr[1];
+		temp2=colarr[2];
+for(l=0;l<8;l++)
+{
+		P1OUT&=~(SIN5916);
+		P1OUT|=(BIT0&temp0)<<7;
+		P1OUT|=SCLK5916;
+		P1OUT&=~SCLK5916;
+		temp0=temp0>>1;
+
+		P1OUT&=~(SIN5916);
+		P1OUT|=(BIT0&temp1)<<7;
+		P1OUT|=SCLK5916;
+		P1OUT&=~SCLK5916;
+		temp1=temp1>>1;
+
+		P1OUT&=~(SIN5916);
+		//P1OUT|=SIN5916&temp2;
+		P1OUT|=(BIT0&temp2)<<7;
+		P1OUT|=SCLK5916;
+		P1OUT&=~SCLK5916;
+		temp2=temp2>>1;
+
+}
+
+}
+
